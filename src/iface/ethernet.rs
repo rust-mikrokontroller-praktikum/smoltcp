@@ -268,6 +268,7 @@ impl<'b, 'c, 'e, DeviceT> Interface<'b, 'c, 'e, DeviceT>
     }
 
     /// Get the first IPv4 address if present.
+    #[cfg(feature = "proto-ipv4")]
     pub fn ipv4_addr(&self) -> Option<Ipv4Address> {
         self.ip_addrs().iter()
             .filter_map(|cidr| match cidr.address() {
