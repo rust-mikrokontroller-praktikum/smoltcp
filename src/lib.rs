@@ -119,6 +119,7 @@ pub mod wire;
 pub mod iface;
 pub mod socket;
 pub mod time;
+#[cfg(feature = "proto-dhcpv4")]
 pub mod dhcp;
 
 /// The error type for the networking stack.
