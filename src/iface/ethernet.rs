@@ -400,6 +400,10 @@ impl<'b, 'c, 'e, DeviceT> Interface<'b, 'c, 'e, DeviceT>
             }).next()
     }
 
+    pub fn in_same_network(&self, addr: &IpAddress) -> bool {
+        self.inner.in_same_network(addr)
+    }
+
     /// Determine if the given `Ipv6Address` is the solicited node
     /// multicast address for a IPv6 addresses assigned to the interface.
     /// See [RFC 4291 § 2.7.1] for more details.
@@ -692,13 +696,6 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
 
                 panic!("IP address {} is not unicast", cidr.address())
             }
-        }
-    }
-
-    #[cfg(feature = "proto-ipv4")]
-    fn check_gateway_addr(addr: &Ipv4Address) {
-        if !addr.is_unspecified() && !addr.is_unicast() {
-            panic!("gateway IP address {} is not unicast", addr);
         }
     }
 
