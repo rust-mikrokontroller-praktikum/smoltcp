@@ -500,11 +500,23 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
         }
     }
 
+    /// Panics if any of the `ip_addrs` is…
+    /// * not unicast, and
+    /// * not unspecified (means DHCP client is pending).
     fn check_ip_addrs(addrs: &[IpCidr]) {
         for cidr in addrs {
-            if !cidr.address().is_unicast() {
+            if !cidr.address().is_unicast() &&
+               !cidr.address().is_unspecified() {
+
                 panic!("IP address {} is not unicast", cidr.address())
             }
+        }
+    }
+
+    #[cfg(feature = "proto-ipv4")]
+    fn check_gateway_addr(addr: &Ipv4Address) {
+        if !addr.is_unspecified() && !addr.is_unicast() {
+            panic!("gateway IP address {} is not unicast", addr);
         }
     }
 
@@ -530,7 +542,12 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
     /// Check whether the interface has the given IP address assigned.
     fn has_ip_addr<T: Into<IpAddress>>(&self, addr: T) -> bool {
         let addr = addr.into();
-        self.ip_addrs.iter().any(|probe| probe.address() == addr)
+
+        // `0.0.0.0` is present as long as DHCP client is pending, but
+        // it is not "valid".
+        ! addr.is_unspecified() &&
+            self.ip_addrs.iter()
+            .any(|probe| probe.address() == addr)
     }
 
     fn process_ethernet<'frame, T: AsRef<[u8]>>
@@ -1188,6 +1205,7 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
     fn in_same_network(&self, addr: &IpAddress) -> bool {
         self.ip_addrs
             .iter()
+            .filter(|cidr| ! cidr.address().is_unspecified())
             .find(|cidr| cidr.contains_addr(addr))
             .is_some()
     }
