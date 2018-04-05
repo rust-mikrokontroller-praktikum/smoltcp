@@ -267,6 +267,34 @@ impl<'b, 'c, 'e, DeviceT> Interface<'b, 'c, 'e, DeviceT>
         self.inner.ip_addrs.as_ref()
     }
 
+    /// Get the first IPv4 address if present.
+    pub fn ipv4_addr(&self) -> Option<Ipv4Address> {
+        self.ip_addrs().iter()
+            .filter_map(|cidr| match cidr.address() {
+                IpAddress::Ipv4(addr) => Some(addr),
+                _ => None,
+            }).next()
+    }
+
+    /// Determine if the given `Ipv6Address` is the solicited node
+    /// multicast address for a IPv6 addresses assigned to the interface.
+    /// See [RFC 4291 § 2.7.1] for more details.
+    ///
+    /// [RFC 4291 § 2.7.1]: https://tools.ietf.org/html/rfc4291#section-2.7.1
+    #[cfg(feature = "proto-ipv6")]
+    pub fn has_solicited_node(&self, addr: Ipv6Address) -> bool {
+        self.inner.ip_addrs.iter().find(|cidr| {
+            match *cidr {
+                &IpCidr::Ipv6(cidr) if cidr.address() != Ipv6Address::LOOPBACK=> {
+                    // Take the lower order 24 bits of the IPv6 address and
+                    // append those bits to FF02:0:0:0:0:1:FF00::/104.
+                    addr.as_bytes()[14..] == cidr.address().as_bytes()[14..]
+                }
+                _ => false,
+            }
+        }).is_some()
+    }
+
     /// Update the IP addresses of the interface.
     ///
     /// # Panics
