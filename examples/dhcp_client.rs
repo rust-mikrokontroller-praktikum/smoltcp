@@ -48,6 +48,7 @@ fn main() {
         let ip_addr = iface.ipv4_addr().unwrap();
         if ip_addr != prev_ip_addr {
             println!("Assigned a new IPv4 address: {}", ip_addr);
+            println!("Default gateway: {}", iface.ipv4_gateway().unwrap());
             prev_ip_addr = ip_addr;
         }
 

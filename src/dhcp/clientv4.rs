@@ -144,7 +144,14 @@ impl Client {
                        }
                    }
                });
-               // TODO: get gateway + dns servers
+               // Set gateway
+               match dhcp_repr.router {
+                   Some(router) if iface.in_same_network(&router.into()) => {
+                       iface.set_ipv4_gateway(router);
+                   }
+                   _ => ()
+               }
+               // TODO: dns servers
         }
 
         match self.state {
@@ -202,10 +209,10 @@ impl Client {
                     message_type: DhcpMessageType::Discover,
                     transaction_id: self.transaction_id,
                     client_hardware_address: mac,
-                    // TODO: suggest from iface?
                     client_ip: Ipv4Address::UNSPECIFIED,
                     your_ip,
                     server_ip: Ipv4Address::UNSPECIFIED,
+                    router: None,
                     subnet_mask: None,
                     relay_agent_ip: Ipv4Address::UNSPECIFIED,
                     broadcast: true,
@@ -231,6 +238,7 @@ impl Client {
                     client_ip: Ipv4Address::UNSPECIFIED,
                     your_ip,
                     server_ip: r_state.server,
+                    router: None,
                     subnet_mask: None,
                     relay_agent_ip: Ipv4Address::UNSPECIFIED,
                     broadcast: false,
@@ -263,6 +271,7 @@ impl Client {
                     client_ip: your_ip,
                     your_ip,
                     server_ip: p_state.server,
+                    router: None,
                     subnet_mask: None,
                     relay_agent_ip: Ipv4Address::UNSPECIFIED,
                     broadcast: false,
