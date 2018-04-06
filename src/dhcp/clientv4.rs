@@ -1,3 +1,4 @@
+use managed::ManagedSlice;
 use {Result, Error};
 use wire::{UdpPacket, UdpRepr,
            DhcpPacket, DhcpRepr, DhcpMessageType};
@@ -56,11 +57,14 @@ pub struct Client {
 /// You must call `poll()` after `iface.poll()` to send and receive
 /// DHCP packets.
 impl Client {
-    pub fn new(sockets: &mut SocketSet, now: Instant) -> Self
+    pub fn new<'a, 'b, 'c, Rx, Tx>(sockets: &mut SocketSet<'a, 'b, 'c>, rx_buffer: Rx, tx_buffer: Tx, now: Instant) -> Self
+    where 'b: 'c,
+          Rx: Into<ManagedSlice<'b, u8>>,
+          Tx: Into<ManagedSlice<'b, u8>>,
     {
         // TODO: allow static storage, deal with contiguous space in RingBuffer
-        let raw_rx_buffer = RawSocketBuffer::new([RawPacketMetadata::EMPTY; 2], vec![0; 1500]);
-        let raw_tx_buffer = RawSocketBuffer::new([RawPacketMetadata::EMPTY; 2], vec![0; 6000]);
+        let raw_rx_buffer = RawSocketBuffer::new([RawPacketMetadata::EMPTY; 1], rx_buffer);
+        let raw_tx_buffer = RawSocketBuffer::new([RawPacketMetadata::EMPTY; 1], tx_buffer);
         let raw_socket = RawSocket::new(
             IpVersion::Ipv4, IpProtocol::Udp,
             raw_rx_buffer, raw_tx_buffer);
