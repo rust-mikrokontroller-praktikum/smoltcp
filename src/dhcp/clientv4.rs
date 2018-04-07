@@ -1,11 +1,10 @@
-use managed::ManagedSlice;
 use {Result, Error};
 use wire::{UdpPacket, UdpRepr,
            DhcpPacket, DhcpRepr, DhcpMessageType};
 use wire::{IpVersion, IpProtocol, IpCidr, Ipv4Cidr, IpEndpoint, IpAddress,
            Ipv4Address, Ipv4Packet, Ipv4Repr};
 use socket::{SocketSet, SocketHandle};
-use socket::{RawSocket, RawSocketBuffer, RawPacketMetadata};
+use socket::{RawSocket, RawSocketBuffer};
 use phy::{Device, ChecksumCapabilities};
 use iface::EthernetInterface as Interface;
 use time::{Instant, Duration};
@@ -57,17 +56,11 @@ pub struct Client {
 /// You must call `poll()` after `iface.poll()` to send and receive
 /// DHCP packets.
 impl Client {
-    pub fn new<'a, 'b, 'c, Rx, Tx>(sockets: &mut SocketSet<'a, 'b, 'c>, rx_buffer: Rx, tx_buffer: Tx, now: Instant) -> Self
+    /// TODO
+    pub fn new<'a, 'b, 'c>(sockets: &mut SocketSet<'a, 'b, 'c>, rx_buffer: RawSocketBuffer<'b, 'c>, tx_buffer: RawSocketBuffer<'b, 'c>, now: Instant) -> Self
     where 'b: 'c,
-          Rx: Into<ManagedSlice<'b, u8>>,
-          Tx: Into<ManagedSlice<'b, u8>>,
     {
-        // TODO: allow static storage, deal with contiguous space in RingBuffer
-        let raw_rx_buffer = RawSocketBuffer::new([RawPacketMetadata::EMPTY; 1], rx_buffer);
-        let raw_tx_buffer = RawSocketBuffer::new([RawPacketMetadata::EMPTY; 1], tx_buffer);
-        let raw_socket = RawSocket::new(
-            IpVersion::Ipv4, IpProtocol::Udp,
-            raw_rx_buffer, raw_tx_buffer);
+        let raw_socket = RawSocket::new(IpVersion::Ipv4, IpProtocol::Udp, rx_buffer, tx_buffer);
         let raw_handle = sockets.add(raw_socket);
 
         Client {

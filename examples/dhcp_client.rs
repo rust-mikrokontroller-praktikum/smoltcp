@@ -11,7 +11,7 @@ use std::os::unix::io::AsRawFd;
 use smoltcp::phy::wait as phy_wait;
 use smoltcp::wire::{EthernetAddress, Ipv4Address, IpCidr};
 use smoltcp::iface::{NeighborCache, EthernetInterfaceBuilder};
-use smoltcp::socket::SocketSet;
+use smoltcp::socket::{SocketSet, RawSocketBuffer, RawPacketMetadata};
 use smoltcp::time::Instant;
 use smoltcp::dhcp::Dhcpv4Client;
 
@@ -36,8 +36,14 @@ fn main() {
             .finalize();
 
     let mut sockets = SocketSet::new(vec![]);
-    let dhcp_rx_buffer = vec![0; 1500];
-    let dhcp_tx_buffer = vec![0; 3000];
+    let dhcp_rx_buffer = RawSocketBuffer::new(
+        [RawPacketMetadata::EMPTY; 1],
+        vec![0; 1500]
+    );
+    let dhcp_tx_buffer = RawSocketBuffer::new(
+        [RawPacketMetadata::EMPTY; 1],
+        vec![0; 3000]
+    );
     let mut dhcp = Dhcpv4Client::new(&mut sockets, dhcp_rx_buffer, dhcp_tx_buffer, Instant::now());
     let mut prev_ip_addr = iface.ipv4_addr().unwrap();
     loop {
