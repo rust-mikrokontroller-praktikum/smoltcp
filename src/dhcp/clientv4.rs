@@ -34,7 +34,7 @@ enum ClientState {
     Discovering,
     /// Requesting an address
     Requesting(RequestState),
-    /// Having an address, refresh it renewally
+    /// Having an address, refresh it periodically
     Renew(RenewState),
 }
 
