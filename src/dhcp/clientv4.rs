@@ -1,10 +1,10 @@
 use {Result, Error};
-use wire::{UdpPacket, UdpRepr,
+use wire::{IpVersion, IpProtocol, IpCidr, IpEndpoint, IpAddress,
+           Ipv4Cidr, Ipv4Address, Ipv4Packet, Ipv4Repr,
+           UdpPacket, UdpRepr,
            DhcpPacket, DhcpRepr, DhcpMessageType};
-use wire::{IpVersion, IpProtocol, IpCidr, Ipv4Cidr, IpEndpoint, IpAddress,
-           Ipv4Address, Ipv4Packet, Ipv4Repr};
-use socket::{SocketSet, SocketHandle};
-use socket::{RawSocket, RawSocketBuffer};
+use wire::dhcpv4::field as dhcpv4_field;
+use socket::{SocketSet, SocketHandle, RawSocket, RawSocketBuffer};
 use phy::{Device, ChecksumCapabilities};
 use iface::EthernetInterface as Interface;
 use time::{Instant, Duration};
@@ -15,6 +15,11 @@ const REQUEST_TIMEOUT: u64 = 1;
 const REQUEST_RETRIES: u16 = 15;
 const RENEW_INTERVAL: u64 = 60;
 const RENEW_RETRIES: u16 = 3;
+const PARAMETER_REQUEST_LIST: &[u8] = &[
+    dhcpv4_field::OPT_SUBNET_MASK,
+    dhcpv4_field::OPT_ROUTER,
+    dhcpv4_field::OPT_DOMAIN_NAME_SERVER,
+];
 
 #[derive(Debug)]
 struct RequestState {
@@ -217,7 +222,7 @@ impl Client {
                     requested_ip,
                     client_identifier: Some(mac),
                     server_identifier: None,
-                    parameter_request_list: None, //Some(&[1, 3, 6, 42]),
+                    parameter_request_list: None,
                 };
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
@@ -243,7 +248,7 @@ impl Client {
                     requested_ip,
                     client_identifier: Some(mac),
                     server_identifier: None,
-                    parameter_request_list: None, //Some(&[1, 3, 6, 42]),
+                    parameter_request_list: Some(PARAMETER_REQUEST_LIST),
                 };
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
@@ -276,7 +281,7 @@ impl Client {
                     requested_ip,
                     client_identifier: Some(mac),
                     server_identifier: None,
-                    parameter_request_list: None, //Some(&[1, 3, 6, 42]),
+                    parameter_request_list: None,
                 };
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
