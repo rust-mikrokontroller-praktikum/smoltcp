@@ -49,7 +49,7 @@ pub struct Client {
     /// When to send next request
     next_egress: Instant,
     transaction_id: u32,
-    // TODO: dns_servers: [Ipv4Address; 3]
+    dns_servers: [Option<Ipv4Address>; 3]
 }
 
 /// DHCP client with a RawSocket.
@@ -73,6 +73,7 @@ impl Client {
             raw_handle,
             next_egress: now,
             transaction_id: 1,
+            dns_servers: [None; 3],
         }
     }
 
@@ -153,7 +154,16 @@ impl Client {
                    }
                    _ => ()
                }
-               // TODO: dns servers
+               // DNS servers
+               match dhcp_repr.dns_servers {
+                   Some(dns_servers) => {
+                       if dns_servers.iter()
+                           .any(|server| server.is_some()) {
+                               self.dns_servers = dns_servers;
+                           }
+                   }
+                   None => {}
+               }
         }
 
         match self.state {
@@ -224,6 +234,7 @@ impl Client {
                     client_identifier: Some(mac),
                     server_identifier: None,
                     parameter_request_list: None,
+                    dns_servers: None,
                 };
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
@@ -250,6 +261,7 @@ impl Client {
                     client_identifier: Some(mac),
                     server_identifier: None,
                     parameter_request_list: Some(PARAMETER_REQUEST_LIST),
+                    dns_servers: None,
                 };
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
@@ -283,6 +295,7 @@ impl Client {
                     client_identifier: Some(mac),
                     server_identifier: None,
                     parameter_request_list: None,
+                    dns_servers: None,
                 };
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
@@ -306,6 +319,40 @@ impl Client {
     pub fn reset(&mut self, now: Instant) {
         self.state = ClientState::Discovering;
         self.next_egress = now;
+    }
+
+    pub fn dns_servers(&self) -> DnsServers {
+        DnsServers {
+            dns_servers: &self.dns_servers,
+            n: 0,
+        }
+    }
+}
+
+/// Iterate through the three DNS servers the `Dhcpv4Client` may know
+pub struct DnsServers<'a> {
+    dns_servers: &'a [Option<Ipv4Address>; 3],
+    n: usize,
+}
+
+impl<'a> Iterator for DnsServers<'a> {
+    type Item = Ipv4Address;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.n < self.dns_servers.len() {
+            match self.dns_servers[self.n] {
+                Some(addr) => {
+                    self.n += 1;
+                    Some(addr)
+                },
+                None => {
+                    self.n += 1;
+                    self.next()
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 

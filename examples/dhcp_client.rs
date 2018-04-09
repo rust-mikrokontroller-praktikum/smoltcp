@@ -57,6 +57,10 @@ fn main() {
         if ip_addr != prev_ip_addr {
             println!("Assigned a new IPv4 address: {}", ip_addr);
             println!("Default gateway: {}", iface.ipv4_gateway().unwrap());
+            for dns_server in dhcp.dns_servers() {
+                println!("DNS servers: {}", dns_server);
+            }
+
             prev_ip_addr = ip_addr;
         }
 
