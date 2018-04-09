@@ -13,7 +13,7 @@ use super::{UDP_SERVER_PORT, UDP_CLIENT_PORT};
 const DISCOVER_TIMEOUT: u64 = 10;
 const REQUEST_TIMEOUT: u64 = 1;
 const REQUEST_RETRIES: u16 = 15;
-const RENEW_TIMEOUT: u64 = 60;
+const RENEW_INTERVAL: u64 = 60;
 const RENEW_RETRIES: u16 = 3;
 
 #[derive(Debug)]
@@ -165,6 +165,7 @@ impl Client {
                 if dhcp_repr.message_type == DhcpMessageType::Ack &&
                 dhcp_repr.server_ip == r_state.server =>
             {
+                self.next_egress = now + Duration::from_secs(RENEW_INTERVAL);
                 let p_state = RenewState {
                     retry: 0,
                     server: dhcp_repr.server_ip,
@@ -175,7 +176,7 @@ impl Client {
                 if dhcp_repr.message_type == DhcpMessageType::Ack &&
                 dhcp_repr.server_ip == p_state.server =>
             {
-                self.next_egress = now + Duration::from_secs(60);
+                self.next_egress = now + Duration::from_secs(RENEW_INTERVAL);
                 p_state.retry = 0;
                 None
             }
@@ -280,7 +281,7 @@ impl Client {
                 send_packet(iface, raw_socket, &endpoint, &dhcp_repr, checksum_caps)?;
 
                 p_state.retry += 1;
-                self.next_egress = now + Duration::from_secs(RENEW_TIMEOUT);
+                self.next_egress = now + Duration::from_secs(RENEW_INTERVAL);
                 Ok(())
             }
             ClientState::Renew(_) => {
