@@ -160,6 +160,7 @@ impl Client {
             ClientState::Discovering
                 if dhcp_repr.message_type == DhcpMessageType::Offer =>
             {
+                self.next_egress = now;
                 let r_state = RequestState {
                     retry: 0,
                     server: dhcp_repr.server_ip,
