@@ -14,7 +14,7 @@ use wire::{IpAddress, IpProtocol, IpRepr, IpCidr};
 #[cfg(feature = "proto-ipv6")]
 use wire::{Ipv6Address, Ipv6Packet, Ipv6Repr, IPV6_MIN_MTU};
 #[cfg(feature = "proto-ipv4")]
-use wire::{Ipv4Packet, Ipv4Repr, IPV4_MIN_MTU};
+use wire::{Ipv4Address, Ipv4Packet, Ipv4Repr, IPV4_MIN_MTU};
 #[cfg(feature = "proto-ipv4")]
 use wire::{ArpPacket, ArpRepr, ArpOperation};
 #[cfg(feature = "proto-ipv4")]
@@ -515,13 +515,6 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
 
                 panic!("IP address {} is not unicast", cidr.address())
             }
-        }
-    }
-
-    #[cfg(feature = "proto-ipv4")]
-    fn check_gateway_addr(addr: &Ipv4Address) {
-        if !addr.is_unspecified() && !addr.is_unicast() {
-            panic!("gateway IP address {} is not unicast", addr);
         }
     }
 
