@@ -150,7 +150,8 @@ impl Client {
                // Set gateway
                match dhcp_repr.router {
                    Some(router) if iface.in_same_network(&router.into()) => {
-                       iface.set_ipv4_gateway(router);
+                       let _ = iface.routes_mut()
+                           .add_default_ipv4_route(router.into());
                    }
                    _ => ()
                }
@@ -361,7 +362,7 @@ fn send_packet<DeviceT: for<'d> Device<'d>>(iface: &mut Interface<DeviceT>, raw_
     assert!(dhcp_repr.buffer_len() <= dhcp_payload_buf.len());
     let dhcp_payload = &mut dhcp_payload_buf[0..dhcp_repr.buffer_len()];
     {
-        let mut dhcp_packet = DhcpPacket::new(&mut dhcp_payload[..]);
+        let mut dhcp_packet = DhcpPacket::new_checked(&mut dhcp_payload[..])?;
         dhcp_repr.emit(&mut dhcp_packet)?;
     }
 
@@ -388,13 +389,13 @@ fn send_packet<DeviceT: for<'d> Device<'d>>(iface: &mut Interface<DeviceT>, raw_
         ipv4_repr.buffer_len() + udp_repr.buffer_len()
     )?;
     {
-        let mut ipv4_packet = Ipv4Packet::new(&mut packet);
+        let mut ipv4_packet = Ipv4Packet::new_checked(&mut packet)?;
         ipv4_repr.emit(&mut ipv4_packet, &checksum_caps);
     }
     {
-        let mut udp_packet = UdpPacket::new(
+        let mut udp_packet = UdpPacket::new_checked(
             &mut packet[ipv4_repr.buffer_len()..]
-        );
+        )?;
         udp_repr.emit(&mut udp_packet,
                       &src_addr.into(), &dst_addr.into(),
                       checksum_caps);

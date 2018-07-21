@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::os::unix::io::AsRawFd;
 use smoltcp::phy::wait as phy_wait;
 use smoltcp::wire::{EthernetAddress, Ipv4Address, IpCidr};
-use smoltcp::iface::{NeighborCache, EthernetInterfaceBuilder};
+use smoltcp::iface::{NeighborCache, EthernetInterfaceBuilder, Routes};
 use smoltcp::socket::{SocketSet, RawSocketBuffer, RawPacketMetadata};
 use smoltcp::time::Instant;
 use smoltcp::dhcp::Dhcpv4Client;
@@ -28,11 +28,13 @@ fn main() {
     let neighbor_cache = NeighborCache::new(BTreeMap::new());
     let ethernet_addr = EthernetAddress([0x02, 0x00, 0x00, 0x00, 0x00, 0x01]);
     let ip_addrs = [IpCidr::new(Ipv4Address::UNSPECIFIED.into(), 0)];
+    let mut routes_storage = [None; 1];
+    let routes = Routes::new(&mut routes_storage[..]);
     let mut iface = EthernetInterfaceBuilder::new(device)
             .ethernet_addr(ethernet_addr)
             .neighbor_cache(neighbor_cache)
             .ip_addrs(ip_addrs)
-            .ipv4_gateway(Ipv4Address::UNSPECIFIED)
+            .routes(routes)
             .finalize();
 
     let mut sockets = SocketSet::new(vec![]);
@@ -56,7 +58,13 @@ fn main() {
         let ip_addr = iface.ipv4_addr().unwrap();
         if ip_addr != prev_ip_addr {
             println!("Assigned a new IPv4 address: {}", ip_addr);
-            println!("Default gateway: {}", iface.ipv4_gateway().unwrap());
+            iface.routes_mut()
+                .update(|routes_map| {
+                    routes_map.get(&IpCidr::new(Ipv4Address::UNSPECIFIED.into(), 0))
+                        .map(|default_route| {
+                            println!("Default gateway: {}", default_route.via_router);
+                        });
+                });
             for dns_server in dhcp.dns_servers() {
                 println!("DNS servers: {}", dns_server);
             }
