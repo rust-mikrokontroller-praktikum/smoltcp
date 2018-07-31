@@ -131,14 +131,12 @@ impl Client {
             dhcp_repr.message_type == DhcpMessageType::Ack) &&
            dhcp_repr.your_ip != Ipv4Address::UNSPECIFIED {
                let prefix_len = dhcp_repr.subnet_mask
-                   .map(|mask| IpAddress::Ipv4(mask).to_prefix_len())
-                   .unwrap_or(0);
+                   .and_then(|mask| IpAddress::Ipv4(mask).to_prefix_len());
                // Replace the first IP address
                iface.update_ip_addrs(|addrs| {
                    for cidr in addrs.iter_mut() {
-                       match cidr.address() {
-                           IpAddress::Ipv4(_) => {
-                               // TODO: prefix_len
+                       match (cidr.address(), prefix_len) {
+                           (IpAddress::Ipv4(_), Some(prefix_len)) => {
                                let ipv4_cidr = Ipv4Cidr::new(dhcp_repr.your_ip, prefix_len);
                                *cidr = IpCidr::Ipv4(ipv4_cidr);
                                break
