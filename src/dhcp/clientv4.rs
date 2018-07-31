@@ -86,46 +86,46 @@ impl Client {
 
     /// Process incoming packets on the contained RawSocket, and send
     /// DHCP requests when timeouts are ready.
-    pub fn poll<DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, sockets: &mut SocketSet, now: Instant) -> Result<()> {
+    pub fn poll<DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, sockets: &mut SocketSet, now: Instant) -> Result<Option<DhcpRepr>> {
         let checksum_caps = ChecksumCapabilities::default();
         let mut raw_socket = sockets.get::<RawSocket>(self.raw_handle);
 
         // Process incoming
-        {
+        let igmp_repr = {
             match raw_socket.recv()
                 .and_then(|packet| parse_udp(packet, &checksum_caps)) {
                     Ok((src, dst, payload)) =>
                         self.ingress(iface, now, payload, &src, &dst),
                     Err(Error::Exhausted) =>
-                        (),
+                        None,
                     Err(e) =>
                         return Err(e),
                 }
-        }
+        };
 
         // Send requests
         if raw_socket.can_send() && now >= self.next_egress {
             self.egress(iface, &mut *raw_socket, &checksum_caps, now)?;
         }
 
-        Ok(())
+        Ok(igmp_repr)
     }
 
-    fn ingress<DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, now: Instant, data: &[u8], src: &IpEndpoint, dst: &IpEndpoint) {
+    fn ingress<'a, DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, now: Instant, data: &'a [u8], src: &IpEndpoint, dst: &IpEndpoint) -> Option<DhcpRepr<'a>> {
         if src.port != UDP_SERVER_PORT ||
-           dst.port != UDP_CLIENT_PORT { return }
+           dst.port != UDP_CLIENT_PORT { return None }
 
         let dhcp_packet = match DhcpPacket::new_checked(data) {
             Ok(dhcp_packet) => dhcp_packet,
-            Err(_) => return,
+            Err(_) => return None,
         };
         let dhcp_repr = match DhcpRepr::parse(&dhcp_packet) {
             Ok(dhcp_repr) => dhcp_repr,
-            Err(_) => return,
+            Err(_) => return None,
         };
         let mac = iface.ethernet_addr();
-        if dhcp_repr.client_hardware_address != mac { return }
-        if dhcp_repr.transaction_id != self.transaction_id { return }
+        if dhcp_repr.client_hardware_address != mac { return None }
+        if dhcp_repr.transaction_id != self.transaction_id { return None }
 
         if (dhcp_repr.message_type == DhcpMessageType::Offer ||
             dhcp_repr.message_type == DhcpMessageType::Ack) &&
@@ -196,7 +196,10 @@ impl Client {
                 None
             }
             _ => None
-        }.map(|new_state| self.state = new_state);
+        }.map(|new_state| {
+            self.state = new_state;
+            dhcp_repr
+        })
     }
 
     fn egress<DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, raw_socket: &mut RawSocket, checksum_caps: &ChecksumCapabilities, now: Instant) -> Result<()> {
