@@ -960,11 +960,6 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
         #[cfg(feature = "socket-raw")]
         let handled_by_raw_socket = self.raw_socket_filter(sockets, &ip_repr, ip_payload);
 
-        if !self.has_ip_addr(ipv4_repr.dst_addr) && !self.has_multicast_group(ipv4_repr.dst_addr) {
-            // Ignore IP packets not directed at us or any of the multicast groups
-            return Ok(Packet::None)
-        }
-
         match ipv4_repr.protocol {
             IpProtocol::Icmp =>
                 self.process_icmpv4(sockets, ip_repr, ip_payload),
