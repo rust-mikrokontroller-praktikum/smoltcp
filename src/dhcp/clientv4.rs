@@ -64,7 +64,9 @@ pub struct Client {
 ///
 /// To provide memory for the dynamic IP address, configure your
 /// `Interface` with one of `ip_addrs` and the `ipv4_gateway` being
-/// `Ipv4Address::UNSPECIFIED`.
+/// `Ipv4Address::UNSPECIFIED`. You must also assign this `0.0.0.0/0`
+/// while the client's state is `Discovering`. Hence, the `poll()`
+/// method returns a corresponding `Config` struct in this case.
 ///
 /// You must call `dhcp_client.poll()` after `iface.poll()` to send
 /// and receive DHCP packets.
@@ -135,12 +137,18 @@ impl Client {
             None
         };
 
-        // Send requests
-        if udp_socket.can_send() && now >= self.next_egress {
-            self.egress(iface, &mut *udp_socket, now)?;
+        if config.is_some() {
+            // Return a new config immediately so that addresses can
+            // be configured that are required by egress().
+            Ok(config)
+        } else {
+            // Send requests
+            if udp_socket.can_send() && now >= self.next_egress {
+                self.egress(iface, &mut *udp_socket, now)
+            } else {
+                Ok(None)
+            }
         }
-
-        Ok(config)
     }
 
     fn ingress<DeviceT: for<'d> Device<'d>>
@@ -227,7 +235,7 @@ impl Client {
         config
     }
 
-    fn egress<DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, udp_socket: &mut UdpSocket, now: Instant) -> Result<()> {
+    fn egress<DeviceT: for<'d> Device<'d>>(&mut self, iface: &mut Interface<DeviceT>, udp_socket: &mut UdpSocket, now: Instant) -> Result<Option<Config>> {
         // Reset after maximum amount of retries
         let retries_exceeded = match self.state {
             ClientState::Requesting(ref mut r_state) if r_state.retry >= REQUEST_RETRIES => {
@@ -242,6 +250,14 @@ impl Client {
         };
         if retries_exceeded {
             self.reset(now);
+            // Return a config now so that user code assigns the
+            // 0.0.0.0/0 address, which will be used sending a DHCP
+            // discovery packet in the next call to egress().
+            return Ok(Some(Config {
+                address: Some(Ipv4Cidr::new(Ipv4Address::UNSPECIFIED, 0)),
+                router: None,
+                dns_servers: [None; 3],
+            }));
         }
 
         // Prepare sending next packet
@@ -265,6 +281,11 @@ impl Client {
             parameter_request_list: None,
             dns_servers: None,
         };
+        let mut send_packet = |endpoint, dhcp_repr| {
+            send_packet(udp_socket, &endpoint, dhcp_repr)
+                .map(|()| None)
+        };
+
 
         match self.state {
             ClientState::Discovering => {
@@ -275,7 +296,7 @@ impl Client {
                     port: UDP_SERVER_PORT,
                 };
                 net_trace!("DHCP send discover to {}: {:?}", endpoint, dhcp_repr);
-                send_packet(udp_socket, &endpoint, &dhcp_repr)
+                send_packet(endpoint, &dhcp_repr)
             }
             ClientState::Requesting(ref mut r_state) => {
                 r_state.retry += 1;
@@ -296,7 +317,7 @@ impl Client {
                 dhcp_repr.server_identifier = Some(r_state.server_identifier);
                 dhcp_repr.parameter_request_list = Some(PARAMETER_REQUEST_LIST);
                 net_trace!("DHCP send request to {} = {:?}", endpoint, dhcp_repr);
-                send_packet(udp_socket, &endpoint, &dhcp_repr)
+                send_packet(endpoint, &dhcp_repr)
             }
             ClientState::Renew(ref mut p_state) => {
                 p_state.retry += 1;
@@ -310,7 +331,7 @@ impl Client {
                 dhcp_repr.message_type = DhcpMessageType::Request;
                 dhcp_repr.client_ip = client_ip;
                 net_trace!("DHCP send renew to {}: {:?}", endpoint, dhcp_repr);
-                send_packet(udp_socket, &endpoint, &dhcp_repr)
+                send_packet(endpoint, &dhcp_repr)
             }
         }
     }
@@ -319,6 +340,9 @@ impl Client {
     ///
     /// Use this to speed up acquisition of an address in a new
     /// network if a link was down and it is now back up.
+    ///
+    /// You *must* configure a `0.0.0.0` address on your interface
+    /// before the next call to `poll()`!
     pub fn reset(&mut self, now: Instant) {
         net_trace!("DHCP reset");
         self.state = ClientState::Discovering;
