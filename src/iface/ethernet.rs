@@ -58,8 +58,8 @@ use super::Routes;
 /// a dependency on heap allocation, it instead owns a `BorrowMut<[T]>`, which can be
 /// a `&mut [T]`, or `Vec<T>` if a heap is available.
 pub struct Interface<'b, 'c, 'e, DeviceT: for<'d> Device<'d>> {
-    device: DeviceT,
-    inner:  InterfaceInner<'b, 'c, 'e>,
+    pub device: DeviceT,
+    pub inner:  InterfaceInner<'b, 'c, 'e>,
 }
 
 /// The device independent part of an Ethernet network interface.
@@ -69,9 +69,9 @@ pub struct Interface<'b, 'c, 'e, DeviceT: for<'d> Device<'d>> {
 /// the `device` mutably until they're used, which makes it impossible to call other
 /// methods on the `Interface` in this time (since its `device` field is borrowed
 /// exclusively). However, it is still possible to call methods on its `inner` field.
-struct InterfaceInner<'b, 'c, 'e> {
-    neighbor_cache:         NeighborCache<'b>,
-    ethernet_addr:          EthernetAddress,
+pub struct InterfaceInner<'b, 'c, 'e> {
+    pub neighbor_cache:     NeighborCache<'b>,
+    pub ethernet_addr:      EthernetAddress,
     ip_addrs:               ManagedSlice<'c, IpCidr>,
     routes:                 Routes<'e>,
     #[cfg(feature = "proto-igmp")]
