@@ -249,6 +249,9 @@ impl<'a, 'b> IcmpSocket<'a, 'b> {
     /// the given sockets received buffer.
     pub(crate) fn accepts(&self, ip_repr: &IpRepr, icmp_repr: &IcmpRepr,
                           cksum: &ChecksumCapabilities) -> bool {
+        if let &IcmpRepr::Ipv4(Icmpv4Repr::EchoReply { ident, .. }) = icmp_repr {
+            println!("Got pong with ident: {}", ident);
+        };
         match (&self.endpoint, icmp_repr) {
             // If we are bound to ICMP errors associated to a UDP port, only
             // accept Destination Unreachable messages with the data containing
